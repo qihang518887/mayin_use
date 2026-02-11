@@ -1,0 +1,62 @@
+# docker-compose.yml
+# NAPCAT_UID=$(id -u) NAPCAT_GID=$(id -g) docker-compose -f ./compose/astrbot.yml up -d
+services:
+  napcat:
+    environment:
+      - NAPCAT_UID=${NAPCAT_UID:-1000}
+      - NAPCAT_GID=${NAPCAT_GID:-1000}
+      - MODE=astrbot
+    ports:
+      - 6099:6099
+    container_name: napcat
+    restart: always
+    image: mlikiowa/napcat-docker:latest
+    volumes:
+      - ./data:/AstrBot/data
+      - ./napcat/config:/app/napcat/config
+      - ./ntqq:/app/.config/QQ
+    networks: 
+      - bot
+  
+  astrbot:
+    environment:
+      - TZ=Asia/Shanghai
+    image: soulter/astrbot:latest
+    container_name: astrbot
+    restart: always
+    ports:
+      - 6185:6185
+    volumes:
+      - ./data:/AstrBot/data
+    networks: 
+      - bot
+
+# gsuid_core Docker Compose 配置
+# 部署方式: 全量模式
+
+  gsuid_core:
+    image: docker.cnb.cool/gscore-mirror/gsuid_core:latest
+    container_name: gsuid_core
+    ports:
+      - "${PORT:-8765}:8765"
+    volumes:
+      - ${DATA_PATH:-./gscore_data}:/gsuid_core/data
+      - ${PLUGIN_PATH:-./gscore_plugins}:/gsuid_core/gsuid_core/plugins
+      - venv-data:/venv
+    restart: always
+    environment:
+      - PYTHONUNBUFFERED=1
+      - UV_INDEX=${GSCORE_PYTHON_INDEX:-https://mirrors.cernet.edu.cn/pypi/web/simple}
+      - UV_NO_CONFIG=${UV_NO_CONFIG:-false}
+      - http_proxy=${GSCORE_HTTP_PROXY:-}
+      - https_proxy=${GSCORE_HTTPS_PROXY:-}
+      - no_proxy=${GSCORE_NO_PROXY:-localhost,127.0.0.1,.local,cnb.cool,mirrors.aliyun.com,pypi.tuna.tsinghua.edu.cn,mirrors.volces.com}
+    networks: 
+      - bot
+
+volumes:
+  venv-data:
+
+networks:
+  bot:
+    driver: bridge
