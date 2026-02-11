@@ -1,0 +1,42 @@
+version: "3"
+services:
+  natter:
+    command: -m iptables -e /opt/qb.sh -r -U
+    container_name: natter
+    volumes:
+      - ./qb.sh:/opt/qb.sh
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    environment:
+      - TZ=Asia/Shanghai
+    network_mode: host
+    image: nattertool/natter
+    restart: always
+    depends_on:
+      - qbittorrent
+
+  qbittorrent:
+    container_name: qbittorrent
+    volumes:
+      - ./qbittorrent/config:/config
+      - ./downloads:/downloads
+    environment:
+      - TZ=Asia/Shanghai
+      - WEBUIPORT=18080
+      - PUID=1000
+      - PGID=1000
+    network_mode: host
+    image: superng6/qbittorrentee
+    restart: always
+  
+  peerbanhelper:
+    image: "registry.cn-hangzhou.aliyuncs.com/ghostchu/peerbanhelper:latest"
+    restart: always
+    container_name: "peerbanhelper"
+    volumes:
+      - ./peerbanhelper:/app/data
+    network_mode: host
+    stop_grace_period: 30s
+    depends_on:
+      - qbittorrent
