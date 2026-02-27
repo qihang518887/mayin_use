@@ -1,7 +1,7 @@
 version: "3"
 services:
   natter:
-    command: -m iptables -e /opt/qb.sh -r -U
+    command: -m nftables -e /opt/qb.sh -r -U
     container_name: natter
     volumes:
       - ./qb.sh:/opt/qb.sh
