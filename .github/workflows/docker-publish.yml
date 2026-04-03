@@ -29,8 +29,8 @@ jobs:
       - name: Log into registry Docker
         uses: docker/login-action@v4
         with:
-          username: ${{ secrets.GITHUB_USER }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }}
 
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
@@ -40,4 +40,4 @@ jobs:
         with:
           context: ./astrbot_playwright
           push: true
-          tags: mayinjiang/Astrbot_playwright
+          tags: mayin/Astrbot_playwright
