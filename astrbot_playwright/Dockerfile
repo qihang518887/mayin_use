@@ -1,3 +1,2 @@
 FROM soulter/astrbot:latest
-RUN npx playwright install --with-deps webkit
-RUN playwright install webkit
+RUN npx playwright install
