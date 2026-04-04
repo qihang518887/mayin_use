@@ -1,2 +1,2 @@
 FROM soulter/astrbot:latest
-RUN npx playwright install --with-deps
+RUN npx playwright install --with-deps chromium-headless-shell
