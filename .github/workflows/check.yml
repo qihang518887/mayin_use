@@ -1,0 +1,79 @@
+name: Update Digest & Trigger Build
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  check-and-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          # 关键点：必须使用存储在 Secrets 中的 PAT Token
+          # 这样生成的 Commit 才能触发其他 Workflow
+          token: ${{ secrets.PAT }}
+
+      # 3. 获取官方镜像 Digest 并比对
+      - name: Check Official Digest
+        id: digest_check
+        # 使用 Shell 脚本获取远程镜像 Digest 并与本地文件比对
+        # 这里使用 jq 和 curl 解析 Docker Hub API
+        # 如果你使用的是其他镜像仓库（如 Quay, ECR），请替换 API 地址
+        run: |
+          # 获取官方镜像的 Digest (以 Docker Hub 为例)
+          # 请替换 YOUR_NAMESPACE 和 YOUR_IMAGE
+          OFFICIAL_DIGEST=$(curl -s -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+            -H "Accept: application/vnd.oci.image.manifest.v1+json" \
+            -H "Accept: application/vnd.docker.distribution.manifest.list.v2+json" \
+            -H "Accept: application/vnd.oci.image.index.v1+json" \
+            "https://hub.docker.com/v2/repositories/YOUR_NAMESPACE/YOUR_IMAGE/tags/latest" | jq -r '.images[0].digest')
+          
+          # 检查本地是否存在 digest.txt，不存在则创建空文件
+          if [ ! -f "digest.txt" ]; then
+            echo "NEW_FILE" > digest.txt
+          fi
+          
+          LOCAL_DIGEST=$(cat digest.txt)
+          
+          echo "Official: $OFFICIAL_DIGEST"
+          echo "Local: $LOCAL_DIGEST"
+          
+          # 比对逻辑
+          if [ "$OFFICIAL_DIGEST" = "$LOCAL_DIGEST" ]; then
+            echo "Digest matched. No changes. Exiting."
+            # 设置输出，用于后续步骤判断（可选）
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "Digest changed! Updating file..."
+            echo "$OFFICIAL_DIGEST" > digest.txt
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      # 4. 条件提交：只有当 Digest 发生变化时才执行提交
+      - name: Commit and Push
+        # 仅当上一步骤输出 changed=true 时执行
+        if: steps.digest_check.outputs.changed == 'true'
+        uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          # 自定义提交信息
+          commit_message: chore: Update digest and trigger rebuild
+          # 指定要提交的文件，如果不指定默认是所有 (.)
+          file_pattern: digest.txt
+          # 关键点：跳过脏检查，强制尝试提交
+          # 因为我们是脚本修改的文件，Git 可能感知不到变化，或者需要强制推送
+          # 如果你的分支受保护，需要配合 push_options: '--force'
+          # skip_dirty_check: true 
+          # 如果需要强制推送到受保护分支，请取消注释下行并确保 PAT 有权限
+          # push_options: '--force'
+
+      # 5. 可选：如果不想用 Commit 触发，也可以在这里直接调用 API 触发其他 Workflow
+      # 但是根据你的描述，保留 Commit 记录更好，所以通常不需要这一步
+      # - name: Trigger Other Workflows (Alternative)
+      #   if: steps.digest_check.outputs.changed == 'true'
+      #   run: |
+      #     # 使用 GitHub API 手动触发其他工作流
+      #     # 需要 secrets.PAT 权限
+      #     # 语法较为复杂，通常 Commit 方式更直观
