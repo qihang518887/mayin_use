@@ -1,2 +1,2 @@
 FROM soulter/astrbot:latest
-RUN npx playwright install
+RUN /usr/local/bin/playwright install
