@@ -41,4 +41,4 @@ jobs:
         with:
           context: ./astrbot_playwright
           push: true
-          tags: mayin/Astrbot_playwright
+          tags: mayin/astrbot_playwright
