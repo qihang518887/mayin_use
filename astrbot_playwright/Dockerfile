@@ -1,2 +1,3 @@
 FROM soulter/astrbot:latest
-RUN npx playwright install --with-deps && /usr/local/bin/playwright install
+ENV PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
+RUN npx playwright install --with-deps chromium
