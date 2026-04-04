@@ -6,6 +6,7 @@ name: Build AstrBot with Playwright
 # documentation.
 
 on:
+  workflow_dispatch：
   schedule:
     - cron: '0 */6 * * *'
 
