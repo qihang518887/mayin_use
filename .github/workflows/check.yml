@@ -1,20 +1,16 @@
-name: Update Digest & Trigger Build
+name: check and update
 
 on:
   schedule:
-#    - cron: '0 */6 * * *'
+#    - cron: '0 0 * * *'
   workflow_dispatch:
 
 jobs:
   check-and-update:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
-        with:
-          # 关键点：必须使用存储在 Secrets 中的 PAT Token
-          # 这样生成的 Commit 才能触发其他 Workflow
-          token: ${{ secrets.PAT }}
+        uses: actions/checkout@v6
 
       # 3. 获取官方镜像 Digest 并比对
       - name: Check Official Digest
