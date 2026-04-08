@@ -29,11 +29,11 @@ jobs:
         id: check
         run: |
           DIGEST_ASTRBOT_NEW=$(curl -s "https://hub.docker.com/v2/namespaces/soulter/repositories/astrbot/tags/latest" | jq -r '.images[] | select(.architecture == "arm64") | .digest')
-          DIGEST_ASTRBOT_OLD=$(cat astrbot.txt 2>/dev/null || echo "")
+          DIGEST_ASTRBOT_OLD=$(cat astrbot_playwright/digest.txt)
 
           echo "digest_new=$DIGEST_ASTRBOT_NEW" >> "$GITHUB_OUTPUT"
           echo "digest_old=$DIGEST_ASTRBOT_OLD" >> "$GITHUB_OUTPUT"
-          echo "$DIGEST_ASTRBOT_NEW" > astrbot.txt
+          echo "$DIGEST_ASTRBOT_NEW" > astrbot_playwright/digest.txt
 
       - name: 若不一致则更新
         if: ${{ steps.check.outputs.digest_new != steps.check.outputs.digest_old }}
