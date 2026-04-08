@@ -2,7 +2,8 @@ name: Build AstrBot with Playwright
 
 on:
   workflow_dispatch:
-
+  schedule:
+    - cron: '0 0 * * *'
 
 jobs:
   check:
