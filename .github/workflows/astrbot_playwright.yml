@@ -9,7 +9,7 @@ jobs:
   check:
     runs-on: ubuntu-24.04-arm
     permissions:
-      contents: read
+      contents: write
       packages: write
       # This is used to complete the identity challenge
       # with sigstore/fulcio when running outside of PRs.
@@ -35,7 +35,7 @@ jobs:
           echo "digest_old=$DIGEST_ASTRBOT_OLD" >> "$GITHUB_OUTPUT"
           echo "$DIGEST_ASTRBOT_NEW" > astrbot_playwright/digest.txt
 
-      - name: 若不一致则更新
+      - name: 更新digest
         if: ${{ steps.check.outputs.digest_new != steps.check.outputs.digest_old }}
         uses: docker/build-push-action@v7
         with:
