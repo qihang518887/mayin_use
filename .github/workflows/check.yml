@@ -30,7 +30,7 @@ jobs:
 
       - name: 若不一致则更新
         if: ${{ steps.check.outputs.digest_new != steps.check.outputs.digest_old }}
-        uses: ./.github/workflows/astrbot_paywright.yml
+        uses: ./.github/workflows/astrbot_paywright.yml@main
 
       - name: 更新工件
         if: ${{ steps.check.outputs.digest_new != steps.check.outputs.digest_old }}
