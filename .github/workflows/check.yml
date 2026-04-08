@@ -7,7 +7,7 @@ on:
 
 jobs:
   check-and-update:
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-latest
     steps:
       - name: 下载工件
         uses: actions/download-artifact@v4
@@ -18,7 +18,8 @@ jobs:
       - name: 检查astrbot镜像
         id: check
         run: |
-          DIGEST_ASTRBOT_NEW=$(curl -s "https://hub.docker.com/v2/namespaces/soulter/repositories/astrbot/tags/latest" | jq -r '.images[] | select(.architecture == "arm64") | .digest' // empty)
+          DIGEST_ASTRBOT_NEW=$(curl -s "https://hub.docker.com/v2/namespaces/soulter/repositories/astrbot/tags/latest" | jq -r '.images[] | select(.architecture == "arm64") | .digest // empty')
+          echo "$DIGEST_ASTRBOT_NEW"
           DIGEST_ASTRBOT_OLD=""
           DIGEST_ASTRBOT_OLD=$(cat astrbot.txt 2>/dev/null)
 
