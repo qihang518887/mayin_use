@@ -20,7 +20,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 下载工件
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: digest
         continue-on-error: true
@@ -42,7 +42,7 @@ jobs:
           echo "$DIGEST_ASTRBOT_NEW" > astrbot.txt
 
       - name: 更新工件
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: digest
           path: astrbot.txt
