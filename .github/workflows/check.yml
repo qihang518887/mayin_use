@@ -18,7 +18,7 @@ jobs:
       - name: 检查astrbot镜像
         id: check
         run: |
-          DIGEST_ASTRBOT_NEW=$(curl -s "https://hub.docker.com/v2/namespaces/soulter/repositories/astrbot/tags/latest" | jq -r '.images[] | select(.architecture == "arm64") | .digest')
+          DIGEST_ASTRBOT_NEW=$(curl -s "https://hub.docker.com/v2/namespaces/soulter/repositories/astrbot/tags/latest" | jq -r '.images[] | select(.architecture == "arm64") | .digest' // empty)
           DIGEST_ASTRBOT_OLD=""
           DIGEST_ASTRBOT_OLD=$(cat astrbot.txt 2>/dev/null)
 
