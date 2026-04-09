@@ -8,7 +8,7 @@ name: Build gscore with nodejs
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '0 0 */10 * *'
 jobs:
   build:
 
