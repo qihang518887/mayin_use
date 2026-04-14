@@ -6,7 +6,7 @@ COPY . .
 
 # 安装 pnpm（轻量）
 RUN npm install -g pnpm
-
+RUN pnpm add -D tsx
 # 安装依赖
 RUN pnpm install --frozen-lockfile
 
