@@ -5,8 +5,7 @@ WORKDIR /app
 COPY . .
 
 # 安装 pnpm（轻量）
-RUN npm install -g pnpm
-RUN pnpm add -D tsx --no-frozen-lockfile
+RUN npm install -g pnpm tsx
 # 安装依赖
 RUN pnpm install --frozen-lockfile
 
