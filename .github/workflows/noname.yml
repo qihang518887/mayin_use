@@ -1,4 +1,4 @@
-name: noname
+name: Build noname
 
 on:
   workflow_dispatch:
