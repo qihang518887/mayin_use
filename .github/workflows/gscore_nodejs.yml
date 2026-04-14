@@ -32,12 +32,19 @@ jobs:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_TOKEN }}
 
+      - name: 设置QEMU
+        uses: docker/setup-qemu-action@v4
+        
+      - name: 设置Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
       - name: Build and push Docker image
         id: build-and-push
         uses: docker/build-push-action@v7
         with:
+          platforms: linux/amd64,linux/arm64
           context: ./gscore_nodejs
           push: true
           tags: mayin/gscore_nodejs
