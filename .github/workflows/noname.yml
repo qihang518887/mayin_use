@@ -18,7 +18,7 @@ jobs:
       - name: 构建文件
         uses: actions/setup-node@v6
         with:
-          node-version: 'lts'
+          node-version: 'lts/*'
       - run: |
           npm install -g pnpm
           pnpm install
@@ -26,7 +26,7 @@ jobs:
           curl -L https://raw.githubusercontent.com/qihang518887/mayin_use/refs/heads/main/noname/Dockerfile > Dockerfile
         working-directory: ./packages/server
 
-      - name: Login to Docker Hub
+      - name: 登录Docker Hub
         uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKER_USER }}
