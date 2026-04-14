@@ -1,0 +1,14 @@
+name: Build noname
+
+on:
+  workflow_dispatch:
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: 'libnoname/noname'
+
+      - run: ls
