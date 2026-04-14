@@ -3,16 +3,28 @@ name: Build noname
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  
 jobs:
   docker:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - name: 拉取源码
+        uses: actions/checkout@v6
         with:
           repository: 'libnoname/noname'
 
-      - name: Rewrite Dockerfile
-        run: curl -L https://raw.githubusercontent.com/qihang518887/mayin_use/refs/heads/main/noname/Dockerfile > ./apps/core/Dockerfile
+      - name: 构建文件
+        uses: actions/setup-node@v6
+        with:
+          node-version: 'lts'
+      - run: |
+          npm install -g pnpm
+          pnpm install
+          pnpm build
+          curl -L https://raw.githubusercontent.com/qihang518887/mayin_use/refs/heads/main/noname/Dockerfile > Dockerfile
+        working-directory: ./packages/server
 
       - name: Login to Docker Hub
         uses: docker/login-action@v4
@@ -29,7 +41,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v7
         with:
-          context: ./apps/core
+          context: ./packages/server
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: mayin/noname
+          tags: mayin/noname-server
