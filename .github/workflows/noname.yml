@@ -20,11 +20,11 @@ jobs:
         with:
           node-version: 'lts/*'
       - run: |
+          curl -L https://raw.githubusercontent.com/qihang518887/mayin_use/refs/heads/main/noname/Dockerfile > Dockerfile
+          curl -L https://raw.githubusercontent.com/qihang518887/mayin_use/refs/heads/main/noname/tsup.config.ts > tsup.config.ts          
           npm install -g pnpm
           pnpm install
           pnpm build
-          curl -L https://raw.githubusercontent.com/qihang518887/mayin_use/refs/heads/main/noname/Dockerfile > Dockerfile
-          curl -L https://raw.githubusercontent.com/qihang518887/mayin_use/refs/heads/main/noname/tsup.config.ts > tsup.config.ts
         working-directory: ./packages/server
 
       - name: 登录Docker Hub
