@@ -20,10 +20,12 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 'lts/*'
-
-      - run: |
+          
+      - name: 获取tag
+        id: get
+        run: |
           RELEASE_TAG=$(git describe --tags --abbrev=0)
-          echo "RELEASE_TAG=$RELEASE_TAG" >> "$GITHUB_ENV"
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
           
       - run: |
           curl -L https://raw.githubusercontent.com/qihang518887/mayin_use/refs/heads/main/noname/Dockerfile > Dockerfile
@@ -51,6 +53,6 @@ jobs:
           context: ./packages/server
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: mayin/noname-server:$RELEASE_TAG
-
-      -  run: echo "${{ github.repository }}"
+          tags: |
+            mayin/noname-server:${{ steps.get.outputs.tag }}
+            mayin/noname-server:lastest
