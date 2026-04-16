@@ -19,6 +19,11 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 'lts/*'
+
+      - run: |
+          RELEASE_TAG=$(git describe --tags --abbrev=0)
+          echo "RELEASE_TAG=$RELEASE_TAG" >> "$GITHUB_ENV"
+          
       - run: |
           curl -L https://raw.githubusercontent.com/qihang518887/mayin_use/refs/heads/main/noname/Dockerfile > Dockerfile
           curl -L https://raw.githubusercontent.com/qihang518887/mayin_use/refs/heads/main/noname/tsup.config.ts > tsup.config.ts          
@@ -45,4 +50,6 @@ jobs:
           context: ./packages/server
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: mayin/noname-server
+          tags: mayin/noname-server:$RELEASE_TAG
+
+      -  run: echo "${{ github.repository }}"
