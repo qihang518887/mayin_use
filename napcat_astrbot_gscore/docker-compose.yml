@@ -46,10 +46,6 @@ services:
     network_mode: host
 
 volumes:
-  venv-data:    networks: 
-      - bot
-
-volumes:
   venv-data:
 
 networks:
