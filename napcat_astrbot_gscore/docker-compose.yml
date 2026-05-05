@@ -3,12 +3,12 @@
 services:
   napcat:
     environment:
-      - NAPCAT_UID=${NAPCAT_UID:-1000}
-      - NAPCAT_GID=${NAPCAT_GID:-1000}
+      - NAPCAT_UID=${NAPCAT_UID:-11000}
+      - NAPCAT_GID=${NAPCAT_GID:-11000}
       - MODE=astrbot
     container_name: napcat
     restart: always
-    image: mlikiowa/napcat-docker:latest
+    image: mlikiowa/napcat-docker:v4.15.0
     volumes:
       - ./data:/AstrBot/data
       - ./napcat/config:/app/napcat/config
