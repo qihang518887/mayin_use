@@ -1,0 +1,9 @@
+{
+  "qihang518887/astrbot_plugin_ikun": {
+    "name": "astrbot_plugin_ikun",
+    "desc": "基于洛雪音乐API的点歌插件，支持网易云、QQ音乐、酷狗、酷我等音源，可自定义JS音源",
+    "version": "v1.6.0",
+    "author": "ikunshare",
+    "repo": "https://github.com/qihang518887/astrbot_plugin_ikun"
+  }
+}
