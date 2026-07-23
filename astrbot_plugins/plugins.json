@@ -9,7 +9,7 @@
   "qihang518887/astrbot_plugin_BitTorrent": {
       "name": "astrbot_plugin_BitTorrent",
       "desc": "BitTorrent磁力搜索插件，搜索磁力链接并预览文件信息(magnet torrent search)",
-      "version": "v1.4.6",
+      "version": "v1.4.7",
       "author": "NightDust981989",
       "repo": "https://github.com/qihang518887/astrbot_plugin_BitTorrent"
     }
