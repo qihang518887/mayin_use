@@ -34,6 +34,14 @@ if errorlevel 1 (
     exit /b 1
 )
 
+reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending" >nul 2>&1 && set "REBOOTREQ=1"
+reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired" >nul 2>&1 && set "REBOOTREQ=1"
+if defined REBOOTREQ (
+    echo Pending reboot detected, restart Windows and run this again.
+    pause
+    exit /b 1
+)
+
 call :readkey
 if not defined PROKEY (
     echo.
@@ -47,13 +55,11 @@ if not defined PROKEY (
     exit /b 1
 )
 
-set "CHANGEPK=%SystemRoot%\System32\changepk.exe"
-if exist "%SystemRoot%\Sysnative\changepk.exe" set "CHANGEPK=%SystemRoot%\Sysnative\changepk.exe"
 echo Starting the edition upgrade...
-"%CHANGEPK%" /ProductKey "%PROKEY%"
+dism /Online /English /Set-Edition:Professional /ProductKey:%PROKEY% /AcceptEula
 set "RC=%ERRORLEVEL%"
 set "PROKEY="
-echo changepk exit code: %RC%
+echo dism exit code: %RC%
 echo Restart Windows, then run this script with /check.
 pause
 exit /b %RC%

@@ -2,12 +2,12 @@
 
 家庭版（`Core*`）没有远程桌面主机功能，Child Session 方案在家庭版上不可用。本工具把系统切到专业版，补齐 RDP 主机。
 
-原理和 Microsoft-Activation-Scripts 的改版本那步一样：`changepk /ProductKey` + 一枚属于专业版的默认密钥。区别是它不存密钥，运行时通过系统的 `pkeyhelper.dll`（`SkuGetProductKeyForEdition`）现取，脚本里没有任何密钥字面量。
+走的是 Microsoft-Activation-Scripts 改版本的同一条路：`dism /Online /Set-Edition` + 一枚属于专业版的默认密钥。区别是它不存密钥，运行时通过系统的 `pkeyhelper.dll`（`SkuGetProductKeyForEdition`）现取，脚本里没有任何密钥字面量。
 
 ## 用法
 
 1. 双击 `修复家庭版RDP.bat`，会请求管理员权限。
-2. 脚本自动取密钥并调用 `changepk`。想用别的密钥就在脚本同目录放 `key.txt`（第一行是密钥），会优先用它；只在取不到时才提示手动输入。
+2. 脚本自动取密钥并调用 DISM 换版本。想用别的密钥就在脚本同目录放 `key.txt`（第一行是密钥），会优先用它；只在取不到时才提示手动输入。
 3. 重启电脑，之后运行 `修复家庭版RDP.bat /check` 确认版本已切换。
 
 `/check` 只读当前版本，不改系统；不是家庭版直接退出，不会提权。
