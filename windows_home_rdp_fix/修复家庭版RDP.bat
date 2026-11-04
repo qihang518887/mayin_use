@@ -37,7 +37,9 @@ if errorlevel 1 (
 echo.
 echo This changes the Windows edition and needs a restart.
 echo Save your work first. A valid Windows Pro product key is required.
-set /p "PROKEY=Enter Windows Pro product key: "
+set "PROKEY="
+if exist "%~dp0key.txt" for /f "usebackq delims=" %%K in ("%~dp0key.txt") do if not defined PROKEY set "PROKEY=%%K"
+if not defined PROKEY set /p "PROKEY=Enter Windows Pro product key: "
 if not defined PROKEY (
     echo No key entered.
     pause
