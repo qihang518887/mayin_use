@@ -1,0 +1,10 @@
+﻿# Windows DPAPI 本机加密凭据（严禁提交）
+session_cred.dat
+*.dat
+
+# 临时文件与调试符号
+*.pdb
+*.obj
+*.user
+*.suo
+.vs/
