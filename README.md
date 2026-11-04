@@ -1,6 +1,10 @@
-﻿目前仓库中包含  
-1.napcat+astrbot+gscore绑定的qqbot。  
-2.qbittorrent增强版+nat打洞并增加peer-banhelper。  
-3.astrbot镜像，但是内置了playwright来支持真寻日报。  
-4.添加了--qbittorrent参数的natter，方便与qbittorrent集成。  
-5.maaend_child_session：基于 Windows 原生 Child Session 的 MaaEnd 桌面分身外挂，实现零侵入、不抢主桌面鼠标/焦点的无感伪后台。
+# 孖烎自用工具
+
+个人维护的机器人部署、插件和桌面工具配置。
+
+| 目录 | 用途 |
+| --- | --- |
+| [`napcat_astrbot_gscore`](napcat_astrbot_gscore/) | 用 Docker Compose 部署 Napcat、AstrBot 和 GScore。 |
+| [`astrbot_playwright`](astrbot_playwright/) | 为 AstrBot 镜像加入 Playwright 与 Chromium，并自动跟进上游镜像。 |
+| [`astrbot_plugins`](astrbot_plugins/) | AstrBot 插件源，收录点歌和 BitTorrent 搜索插件。 |
+| [`maaend_child_session`](maaend_child_session/) | 在 Windows Child Session 中运行 MaaEnd，减少对主桌面的影响。 |
