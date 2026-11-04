@@ -786,12 +786,12 @@ namespace MaaChildHost
         private static void RunEnvironmentDiagnostics()
         {
             bool attached = NativeMethods.AttachConsole(NativeMethods.ATTACH_PARENT_PROCESS);
-            if (!attached)
+            if (!attached && !Console.IsInputRedirected)
             {
                 NativeMethods.AllocConsole();
             }
             try { Console.OutputEncoding = Encoding.UTF8; } catch { }
-            Console.Title = "MaaEnd 桌面分身 - 系统环境与兼容性检测";
+            try { Console.Title = "MaaEnd 桌面分身 - 系统环境与兼容性检测"; } catch { }
 
             Console.WriteLine();
             Console.WriteLine("======================================================");
@@ -1072,6 +1072,84 @@ namespace MaaChildHost
                 string cmd = args[0].ToLowerInvariant();
                 if (cmd == "--check" || cmd == "-c")
                 {
+                    RunEnvironmentDiagnostics();
+                    Environment.Exit(0);
+                    return;
+                }
+                if (cmd == "--fix-rdp" || cmd == "-f")
+                {
+                    NativeMethods.AttachConsole(NativeMethods.ATTACH_PARENT_PROCESS);
+                    Console.WriteLine("======================================================");
+                    Console.WriteLine("           正在一键配置并修复本地 RDP 环境");
+                    Console.WriteLine("======================================================");
+                    try
+                    {
+                        Console.Write("[1/3] 配置远程桌面核心服务 (TermService) ... ");
+                        try
+                        {
+                            using (var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\TermService", true))
+                            {
+                                if (key != null)
+                                {
+                                    int cur = Convert.ToInt32(key.GetValue("Start", 3));
+                                    if (cur == 4) key.SetValue("Start", 3, Microsoft.Win32.RegistryValueKind.DWord);
+                                }
+                            }
+                            var psi = new System.Diagnostics.ProcessStartInfo("net", "start TermService")
+                            {
+                                CreateNoWindow = true,
+                                UseShellExecute = false
+                            };
+                            using (var proc = System.Diagnostics.Process.Start(psi)) { if (proc != null) proc.WaitForExit(3000); }
+                            Console.ForegroundColor = ConsoleColor.Green;
+                            Console.WriteLine("OK");
+                            Console.ResetColor();
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.ForegroundColor = ConsoleColor.Yellow;
+                            Console.WriteLine("WARN (" + ex.Message + ")");
+                            Console.ResetColor();
+                        }
+
+                        Console.Write("[2/3] 开启本地 RDP 监听策略 (fDenyTSConnections) ... ");
+                        using (var rdpKey = Microsoft.Win32.Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Control\Terminal Server"))
+                        {
+                            if (rdpKey != null) rdpKey.SetValue("fDenyTSConnections", 0, Microsoft.Win32.RegistryValueKind.DWord);
+                        }
+                        using (var tsKey = Microsoft.Win32.Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services"))
+                        {
+                            if (tsKey != null) tsKey.SetValue("fPromptForPassword", 0, Microsoft.Win32.RegistryValueKind.DWord);
+                        }
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine("OK");
+                        Console.ResetColor();
+
+                        Console.Write("[3/3] 激活内核 Child Session API ... ");
+                        bool apiOk = NativeMethods.WTSEnableChildSessions(true);
+                        if (apiOk)
+                        {
+                            Console.ForegroundColor = ConsoleColor.Green;
+                            Console.WriteLine("OK");
+                            Console.ResetColor();
+                        }
+                        else
+                        {
+                            Console.ForegroundColor = ConsoleColor.Yellow;
+                            Console.WriteLine("WARN (错误码: " + Marshal.GetLastWin32Error() + ")");
+                            Console.ResetColor();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine("配置异常: " + ex.Message);
+                        Console.ResetColor();
+                    }
+
+                    Console.WriteLine();
+                    Console.WriteLine("修复配置执行完成，正在运行环境检测...");
+                    Console.WriteLine();
                     RunEnvironmentDiagnostics();
                     Environment.Exit(0);
                     return;
