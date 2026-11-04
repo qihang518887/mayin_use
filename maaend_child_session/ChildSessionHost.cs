@@ -828,7 +828,7 @@ namespace MaaChildHost
                 Console.WriteLine("FAIL (家庭版)");
                 Console.ResetColor();
                 Console.WriteLine("      原因：Windows 家庭版默认缺失远程桌面服务端组件，无法原生开启 Child Session。");
-                Console.WriteLine("      解决：需将系统升级至 Windows 专业版 / 企业版。");
+                Console.WriteLine("      解决：运行【修复家庭版RDP.bat】即可一键切换至专业版。");
                 failCount++;
             }
             else
