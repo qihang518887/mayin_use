@@ -4,7 +4,7 @@
 
 版本切换走 Microsoft-Activation-Scripts 客户端的同一条路：用 SPP 的 `SoftwareLicensingService.InstallProductKey` 装入专业版通用密钥，不是 `dism /Set-Edition`。密钥运行时由系统 `pkeyhelper.dll`（`SkuGetProductKeyForEdition`）现取，脚本里没有密钥字面量；取不到时才退回 `key.txt` 或手动输入。
 
-激活直接调用 MAS 3.12 原版 `HWID_Activation.cmd /HWID`。本仓库不收录该脚本，它只放在 Release 的 `MaaEnd桌面分身.zip` 里，用时解压到本脚本同一目录。
+激活直接调用 MAS 3.12 原版 `HWID_Activation.cmd /HWID`。本仓库不收录该脚本，它只放在 Release 的 `MaaEnd-ChildSession-v1.0.0.zip` 里，用时解压到本脚本同一目录。
 
 ## 用法
 
