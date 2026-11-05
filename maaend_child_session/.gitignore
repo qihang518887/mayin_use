@@ -2,6 +2,9 @@
 session_cred.dat
 *.dat
 
+# 打包产物走 Release 附件，不入库
+*.zip
+
 # 临时文件与调试符号
 *.pdb
 *.obj

@@ -12,12 +12,6 @@ if /i "%~1"=="/check" goto :check
 if /i "%~1"=="-check" goto :check
 
 echo Current edition: %EDITION%
-echo %EDITION% | findstr /i /c:"Core" >nul
-if errorlevel 1 (
-    echo This script only upgrades Windows Home editions, nothing to do.
-    pause
-    exit /b 1
-)
 
 fltmc >nul 2>&1
 if errorlevel 1 (
@@ -25,6 +19,9 @@ if errorlevel 1 (
     powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
     exit /b
 )
+
+echo %EDITION% | findstr /i /c:"Core" >nul
+if errorlevel 1 goto :activate
 
 dism /Online /English /Get-TargetEditions | findstr /i /c:"Professional" >nul
 if errorlevel 1 (
@@ -34,8 +31,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending" >nul 2>&1 && set "REBOOTREQ=1"
-reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired" >nul 2>&1 && set "REBOOTREQ=1"
+call :rebootpending
 if defined REBOOTREQ (
     echo Pending reboot detected, restart Windows and run this again.
     pause
@@ -55,24 +51,66 @@ if not defined PROKEY (
     exit /b 1
 )
 
-echo Starting the edition upgrade...
-dism /Online /English /Set-Edition:Professional /ProductKey:%PROKEY% /AcceptEula
+echo Installing the Professional key through SPP...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $null=(([WMISEARCHER]'SELECT Version FROM SoftwareLicensingService').Get()).InstallProductKey('%PROKEY%'); exit 0 } catch { if ($_.Exception.InnerException) { exit $_.Exception.InnerException.HResult } else { exit 1 } }"
 set "RC=%ERRORLEVEL%"
 set "PROKEY="
-echo dism exit code: %RC%
-echo Restart Windows, then run this script with /check.
+if not "%RC%"=="0" (
+    echo Failed to install the product key. WMI error code: %RC%
+    pause
+    exit /b %RC%
+)
+echo.
+echo Edition key installed successfully.
+echo Restart Windows, then run this script again to activate with HWID.
 pause
-exit /b %RC%
+exit /b 0
+
+:activate
+echo %EDITION% | findstr /i /c:"Professional" >nul
+if errorlevel 1 (
+    echo Not a Windows Home or Professional edition, nothing to do.
+    pause
+    exit /b 1
+)
+
+call :rebootpending
+if defined REBOOTREQ (
+    echo Pending reboot detected, restart Windows before activating.
+    pause
+    exit /b 1
+)
+
+set "MASFILE="
+if exist "%~dp0HWID_Activation.cmd" set "MASFILE=%~dp0HWID_Activation.cmd"
+if not defined MASFILE if exist "%~dp0MAS_AIO.cmd" set "MASFILE=%~dp0MAS_AIO.cmd"
+if not defined MASFILE (
+    echo HWID_Activation.cmd was not found next to this script.
+    echo Put the MAS HWID_Activation.cmd in this folder and run again.
+    pause
+    exit /b 2
+)
+
+echo Activating with HWID...
+call "%MASFILE%" /HWID
+exit /b %ERRORLEVEL%
 
 :check
 echo Current edition: %EDITION%
 echo %EDITION% | findstr /i /c:"Core" >nul
 if errorlevel 1 (
     echo Not a Windows Home edition, RDP host is available on this edition.
+    echo Run this script without arguments to activate with HWID.
 ) else (
     echo Windows Home detected, this script can switch it to Professional.
 )
 exit /b 0
+
+:rebootpending
+set "REBOOTREQ="
+reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending" >nul 2>&1 && set "REBOOTREQ=1"
+reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired" >nul 2>&1 && set "REBOOTREQ=1"
+exit /b
 
 :readkey
 set "PROKEY="
