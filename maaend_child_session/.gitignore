@@ -12,3 +12,4 @@ session_cred.dat
 *.suo
 .vs/
 *.orig
+HWID_Activation.cmd
