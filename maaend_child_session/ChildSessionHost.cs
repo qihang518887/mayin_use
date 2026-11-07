@@ -282,9 +282,9 @@ namespace MaaChildHost
         {
             uint? sessionId = NativeMethods.TryGetChildSessionId();
             if (!sessionId.HasValue) throw new InvalidOperationException("Child session is not ready.");
-            string exe = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "MaaEnd.exe");
-            if (!File.Exists(exe)) throw new FileNotFoundException("MaaEnd backend executable not found.", exe);
-            Launch(sessionId.Value, exe, "--child-backend " + parentPid.ToString(CultureInfo.InvariantCulture), AppDomain.CurrentDomain.BaseDirectory);
+            string exe = MainForm.ResolveMaaEndPath(null);
+            if (!File.Exists(exe)) throw new FileNotFoundException("MaaEnd backend executable not found: " + exe, exe);
+            Launch(sessionId.Value, exe, "--child-backend " + parentPid.ToString(CultureInfo.InvariantCulture), Path.GetDirectoryName(exe));
         }
         public static void Launch(uint sessionId, string exePath, string args, string workingDir)
         {
@@ -393,14 +393,12 @@ namespace MaaChildHost
         private bool _launchMaaEndOnConnect = false;
         private uint? _backendParentPid;
 
-        private bool _autoDailyOnConnect = false;
         private string _customMaaEndPath = null;
 
-        public MainForm(bool startHidden = false, bool launchMaaEndOnConnect = false, bool autoDaily = false, uint? backendParentPid = null, string customMaaEndPath = null)
+        public MainForm(bool startHidden = false, bool launchMaaEndOnConnect = false, uint? backendParentPid = null, string customMaaEndPath = null)
         {
             _startHidden = startHidden;
             _launchMaaEndOnConnect = launchMaaEndOnConnect;
-            _autoDailyOnConnect = autoDaily;
             _backendParentPid = backendParentPid;
             _customMaaEndPath = customMaaEndPath;
             if (backendParentPid > 0)
@@ -503,25 +501,6 @@ namespace MaaChildHost
         {
             NativeMethods.WTSEnableChildSessions(true);
             string password = CredentialStore.LoadPassword();
-            if (string.IsNullOrEmpty(password))
-            {
-                using (var dlg = new PasswordDialog())
-                {
-                    if (dlg.ShowDialog(this) == DialogResult.OK && !string.IsNullOrEmpty(dlg.EnteredPassword))
-                    {
-                        password = dlg.EnteredPassword;
-                        if (dlg.RememberPassword)
-                        {
-                            CredentialStore.SavePassword(password);
-                        }
-                    }
-                    else
-                    {
-                        UpdateStatus("未输入登录密码，已中止连接");
-                        return;
-                    }
-                }
-            }
             UpdateStatus("正在连接原生 Child Session (1600x900)...");
             try
             {
@@ -690,6 +669,26 @@ namespace MaaChildHost
             }
         }
 
+        public static string ResolveGamePath()
+        {
+            string[] candidates = new string[]
+            {
+                @"D:\Program Files (x86)\Hypergryph Launcher\Launcher.exe",
+                @"C:\Program Files (x86)\Hypergryph Launcher\Launcher.exe",
+                @"D:\Program Files\Hypergryph Launcher\Launcher.exe",
+                @"C:\Program Files\Hypergryph Launcher\Launcher.exe",
+                @"D:\Program Files (x86)\Hypergryph Launcher\games\Endfield Game\Endfield.exe",
+                @"C:\Program Files (x86)\Hypergryph Launcher\games\Endfield Game\Endfield.exe",
+                @"D:\Program Files\Hypergryph Launcher\games\Endfield Game\Endfield.exe",
+                @"C:\Program Files\Hypergryph Launcher\games\Endfield Game\Endfield.exe"
+            };
+            foreach (string p in candidates)
+            {
+                if (File.Exists(p)) return p;
+            }
+            return null;
+        }
+
         private void LaunchGame()
         {
             uint? targetSid = VerifyTargetSession();
@@ -698,24 +697,22 @@ namespace MaaChildHost
                 MessageBox.Show("桌面分身会话未就绪或已失效，操作已终止。", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
-            string launcher = @"D:\Program Files (x86)\Hypergryph Launcher\Launcher.exe";
-            string game = @"D:\Program Files (x86)\Hypergryph Launcher\games\Endfield Game\Endfield.exe";
-            string target = File.Exists(launcher) ? launcher : (File.Exists(game) ? game : null);
-            bool isLauncher = (target == launcher);
+            string target = ResolveGamePath();
             if (target == null)
             {
                 MessageBox.Show("未找到游戏或启动器", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
+            bool isLauncher = target.EndsWith("Launcher.exe", StringComparison.OrdinalIgnoreCase);
             try
             {
                 ChildLauncher.Launch(targetSid.Value, target, "", Path.GetDirectoryName(target));
                 string desc = isLauncher ? "鹰角启动器" : "终末地客户端";
-                UpdateStatus("已向 Child Session " + targetSid.Value + " 提交" + desc + "启动请求");
+                UpdateStatus("已向 Child Session " + targetSid.Value + " 提交" + desc + "启动任务");
             }
             catch (Exception ex)
             {
-                MessageBox.Show("提交启动失败: " + ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("提交任务失败: " + ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
         private void HideToTray()
@@ -930,13 +927,14 @@ namespace MaaChildHost
                 warnCount++;
             }
 
-            // 5. Windows 原生 Child Session API 探测 (最核心)
-            Console.Write("[5/6] 原生 Child Session API (WTSEnableChildSessions) ... ");
+            // 5. Windows 原生 Child Session 状态探测 (只读)
+            Console.Write("[5/6] 原生 Child Session 状态 (WTSIsChildSessionsEnabled) ... ");
             bool childApiOk = false;
+            bool isEnabled = false;
             int lastErr = 0;
             try
             {
-                childApiOk = NativeMethods.WTSEnableChildSessions(true);
+                childApiOk = NativeMethods.WTSIsChildSessionsEnabled(out isEnabled);
                 if (!childApiOk) lastErr = Marshal.GetLastWin32Error();
             }
             catch (Exception ex)
@@ -946,7 +944,7 @@ namespace MaaChildHost
             if (childApiOk)
             {
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("OK (内核调用成功)");
+                Console.WriteLine("OK (" + (isEnabled ? "已启用" : "支持但未启用") + ")");
                 Console.ResetColor();
                 passCount++;
             }
@@ -957,7 +955,7 @@ namespace MaaChildHost
                 Console.ResetColor();
                 if (lastErr == 5)
                 {
-                    Console.WriteLine("      原因：拒绝访问 (Access Denied)。请以管理员身份运行。");
+                    Console.WriteLine("      原因：拒绝访问 (Access Denied)，请以管理员身份运行。");
                 }
                 else if (lastErr == 120)
                 {
@@ -1182,17 +1180,8 @@ namespace MaaChildHost
                     }
                     try
                     {
-                        NativeMethods.WTSEnableChildSessions(true);
-                        using (var rdpKey = Microsoft.Win32.Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Control\Terminal Server"))
-                        {
-                            if (rdpKey != null) rdpKey.SetValue("fDenyTSConnections", 0, Microsoft.Win32.RegistryValueKind.DWord);
-                        }
-                        using (var tsKey = Microsoft.Win32.Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services"))
-                        {
-                            if (tsKey != null) tsKey.SetValue("fPromptForPassword", 0, Microsoft.Win32.RegistryValueKind.DWord);
-                        }
                         CredentialStore.SavePassword(pwd);
-                        Console.WriteLine("[ChildSessionHost] SUCCESS: 一键免密配置完成！");
+                        Console.WriteLine("[ChildSessionHost] SUCCESS: 测试凭据保存完成！");
                         Environment.Exit(0);
                     }
                     catch (Exception ex)
@@ -1253,37 +1242,6 @@ namespace MaaChildHost
                     Environment.Exit(0);
                     return;
                 }
-                else if (cmd == "--auto-daily" || cmd == "--launch-daily")
-                {
-                    NativeMethods.AttachConsole(NativeMethods.ATTACH_PARENT_PROCESS);
-                    NativeMethods.WTSEnableChildSessions(true);
-                    uint? activeChildId = NativeMethods.TryGetChildSessionId();
-                    if (activeChildId.HasValue)
-                    {
-                        string launcher = @"D:\Program Files (x86)\Hypergryph Launcher\Launcher.exe";
-                        string game = @"D:\Program Files (x86)\Hypergryph Launcher\games\Endfield Game\Endfield.exe";
-                        string target = File.Exists(launcher) ? launcher : (File.Exists(game) ? game : null);
-                        if (target != null)
-                        {
-                            try { ChildLauncher.Launch(activeChildId.Value, target, "", Path.GetDirectoryName(target)); } catch { }
-                        }
-                        string exe = @"D:\Program Files\MaaEnd\MaaEnd.exe";
-                        if (File.Exists(exe))
-                        {
-                            ChildLauncher.Launch(activeChildId.Value, exe, "--autostart --instance \"快速日常\"", Path.GetDirectoryName(exe));
-                            Console.WriteLine("[ChildSessionHost] Auto daily launched into session " + activeChildId.Value);
-                        }
-                        Environment.Exit(0);
-                        return;
-                    }
-                    else
-                    {
-                        Application.EnableVisualStyles();
-                        Application.SetCompatibleTextRenderingDefault(false);
-                        Application.Run(new MainForm(true, false, true));
-                        return;
-                    }
-                }
                 else if (cmd == "--ensure-backend" || cmd == "--launch-backend")
                 {
                     NativeMethods.AttachConsole(NativeMethods.ATTACH_PARENT_PROCESS);
@@ -1317,15 +1275,22 @@ namespace MaaChildHost
                     NativeMethods.AttachConsole(NativeMethods.ATTACH_PARENT_PROCESS);
                     NativeMethods.WTSEnableChildSessions(true);
                     uint? activeChildId = NativeMethods.TryGetChildSessionId();
-                    if (activeChildId.HasValue)
+                    if (!activeChildId.HasValue)
                     {
-                        string exe = @"D:\Program Files\MaaEnd\MaaEnd.exe";
-                        if (File.Exists(exe))
-                        {
-                            ChildLauncher.Launch(activeChildId.Value, exe, "", Path.GetDirectoryName(exe));
-                            Console.WriteLine("[ChildSessionHost] Launched MaaEnd into session " + activeChildId.Value);
-                        }
+                        Console.Error.WriteLine("[ChildSessionHost] Child session is not running.");
+                        Environment.Exit(1);
+                        return;
                     }
+                    string customPath = args.Length > 1 ? args[1] : null;
+                    string exe = MainForm.ResolveMaaEndPath(customPath);
+                    if (!File.Exists(exe))
+                    {
+                        Console.Error.WriteLine("[ChildSessionHost] MaaEnd executable not found: " + exe);
+                        Environment.Exit(1);
+                        return;
+                    }
+                    ChildLauncher.Launch(activeChildId.Value, exe, "", Path.GetDirectoryName(exe));
+                    Console.WriteLine("[ChildSessionHost] Launched MaaEnd into session " + activeChildId.Value + ": " + exe);
                     Environment.Exit(0);
                     return;
                 }
@@ -1334,17 +1299,21 @@ namespace MaaChildHost
                     NativeMethods.AttachConsole(NativeMethods.ATTACH_PARENT_PROCESS);
                     NativeMethods.WTSEnableChildSessions(true);
                     uint? activeChildId = NativeMethods.TryGetChildSessionId();
-                    if (activeChildId.HasValue)
+                    if (!activeChildId.HasValue)
                     {
-                        string launcher = @"D:\Program Files (x86)\Hypergryph Launcher\Launcher.exe";
-                        string game = @"D:\Program Files (x86)\Hypergryph Launcher\games\Endfield Game\Endfield.exe";
-                        string target = File.Exists(launcher) ? launcher : (File.Exists(game) ? game : null);
-                        if (target != null)
-                        {
-                            ChildLauncher.Launch(activeChildId.Value, target, "", Path.GetDirectoryName(target));
-                            Console.WriteLine("[ChildSessionHost] Launched game into session " + activeChildId.Value);
-                        }
+                        Console.Error.WriteLine("[ChildSessionHost] Child session is not running.");
+                        Environment.Exit(1);
+                        return;
                     }
+                    string target = MainForm.ResolveGamePath();
+                    if (target == null)
+                    {
+                        Console.Error.WriteLine("[ChildSessionHost] Game launcher executable not found.");
+                        Environment.Exit(1);
+                        return;
+                    }
+                    ChildLauncher.Launch(activeChildId.Value, target, "", Path.GetDirectoryName(target));
+                    Console.WriteLine("[ChildSessionHost] Launched game into session " + activeChildId.Value + ": " + target);
                     Environment.Exit(0);
                     return;
                 }
@@ -1403,7 +1372,7 @@ namespace MaaChildHost
                 }
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
-                Application.Run(new MainForm(false, autoLaunchMaaEnd, false, null, customMaaEnd));
+                Application.Run(new MainForm(false, autoLaunchMaaEnd, null, customMaaEnd));
             }
         }
     }

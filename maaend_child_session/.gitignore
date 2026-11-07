@@ -11,3 +11,4 @@ session_cred.dat
 *.user
 *.suo
 .vs/
+*.orig
