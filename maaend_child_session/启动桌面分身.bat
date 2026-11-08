@@ -1,10 +1,3 @@
-rem @echo off
-rem if not "%~1"=="" (
-rem     start "" "%~dp0ChildSessionHost.exe" "%~1"
-rem ) else (
-rem     start "" "%~dp0ChildSessionHost.exe" --start
-rem )
-
 @echo off
 set "EXE=%~dp0ChildSessionHost.exe"
 set "DIR=%~dp0"

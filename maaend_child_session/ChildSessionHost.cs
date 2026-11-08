@@ -1,9 +1,7 @@
 ﻿using System;
-using System.ComponentModel;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
-using System.Net;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -282,14 +280,6 @@ namespace MaaChildHost
     }
     internal static class ChildLauncher
     {
-        public static void LaunchBackend(uint parentPid)
-        {
-            uint? sessionId = NativeMethods.TryGetChildSessionId();
-            if (!sessionId.HasValue) throw new InvalidOperationException("Child session is not ready.");
-            string exe = MainForm.ResolveMaaEndPath(null);
-            if (!File.Exists(exe)) throw new FileNotFoundException("MaaEnd backend executable not found: " + exe, exe);
-            Launch(sessionId.Value, exe, "--child-backend " + parentPid.ToString(CultureInfo.InvariantCulture), Path.GetDirectoryName(exe));
-        }
         public static void Launch(uint sessionId, string exePath, string args, string workingDir)
         {
             Type schedulerType = Type.GetTypeFromProgID("Schedule.Service");
@@ -393,23 +383,14 @@ namespace MaaChildHost
         private bool _explicitExit = false;
         private EventWaitHandle _showWaitHandle;
         private Thread _showListenerThread;
-        private bool _startHidden = false;
         private bool _launchMaaEndOnConnect = false;
-        private uint? _backendParentPid;
 
         private string _customMaaEndPath = null;
 
-        public MainForm(bool startHidden = false, bool launchMaaEndOnConnect = false, uint? backendParentPid = null, string customMaaEndPath = null)
+        public MainForm(bool launchMaaEndOnConnect = false, string customMaaEndPath = null)
         {
-            _startHidden = startHidden;
             _launchMaaEndOnConnect = launchMaaEndOnConnect;
-            _backendParentPid = backendParentPid;
             _customMaaEndPath = customMaaEndPath;
-            if (backendParentPid > 0)
-            {
-                Opacity = 0;
-                ShowInTaskbar = false;
-            }
         
             Text = "MaaEnd 桌面分身 (Windows 原生 Child Session)";
             ClientSize = new Size(1600, 940);
@@ -555,14 +536,7 @@ namespace MaaChildHost
                         UpdateStatus("桌面分身运行中 (Child Session ID: " + sid.Value + ")");
                         _btnLaunchMaaEnd.Enabled = true;
                         _btnLaunchGame.Enabled = true;
-                        if (_backendParentPid.HasValue)
-                        {
-                            uint parentPid = _backendParentPid.Value;
-                            _backendParentPid = null;
-                            ChildLauncher.LaunchBackend(parentPid);
-                            if (_startHidden) Hide();
-                        }
-                        else if (_launchMaaEndOnConnect)
+                        if (_launchMaaEndOnConnect)
                         {
                             _launchMaaEndOnConnect = false;
                             LaunchMaaEnd();
@@ -570,7 +544,6 @@ namespace MaaChildHost
                     }
                     else
                     {
-                        if (_backendParentPid.HasValue) throw new InvalidOperationException("Child session is not ready after login.");
                         UpdateStatus("已完成登录，等待受管会话同步...");
                     }
                 }));
@@ -721,13 +694,13 @@ namespace MaaChildHost
         }
         private void HideToTray()
         {
+            _trayIcon.Visible = false;
+            _trayIcon.Visible = true;
             Hide();
             _trayIcon.ShowBalloonTip(2000, "MaaEnd 桌面分身", "窗口已隐藏到系统托盘，子会话与游戏后台挂机保持运行中。\n双击托盘图标可重新显示。", ToolTipIcon.Info);
         }
         public void RestoreAndShow()
         {
-            Opacity = 1;
-            ShowInTaskbar = true;
             Show();
             WindowState = FormWindowState.Normal;
             Activate();
@@ -739,7 +712,7 @@ namespace MaaChildHost
         {
             if (Visible)
             {
-                Hide();
+                HideToTray();
             }
             else
             {
@@ -799,8 +772,6 @@ namespace MaaChildHost
             Console.WriteLine("======================================================");
             Console.WriteLine();
 
-            int passCount = 0;
-            int warnCount = 0;
             int failCount = 0;
 
             // 1. 操作系统版本与 Edition
@@ -836,7 +807,6 @@ namespace MaaChildHost
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("OK (支持)");
                 Console.ResetColor();
-                passCount++;
             }
 
             // 2. 管理员权限检查
@@ -852,7 +822,6 @@ namespace MaaChildHost
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("OK (已提权)");
                 Console.ResetColor();
-                passCount++;
             }
             else
             {
@@ -860,7 +829,6 @@ namespace MaaChildHost
                 Console.WriteLine("WARN (未提权)");
                 Console.ResetColor();
                 Console.WriteLine("      提示：启动分身或修改策略需要管理员权限，运行 bat 时会自动触发 UAC 提权。");
-                warnCount++;
             }
 
             // 3. 远程桌面核心服务配置 (TermService)
@@ -890,14 +858,12 @@ namespace MaaChildHost
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("OK (配置正常)");
                 Console.ResetColor();
-                passCount++;
             }
             else
             {
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine("WARN (状态未知: " + serviceStart + ")");
                 Console.ResetColor();
-                warnCount++;
             }
 
             // 4. 系统远程桌面连接策略 (fDenyTSConnections)
@@ -919,15 +885,13 @@ namespace MaaChildHost
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("OK (已开启)");
                 Console.ResetColor();
-                passCount++;
             }
             else
             {
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine("WARN (未开启: " + denyTS + ")");
                 Console.ResetColor();
-                Console.WriteLine("      解决：运行【一键免密.bat】即可自动开启该策略。");
-                warnCount++;
+                Console.WriteLine("      解决：运行【一键开启RDP.bat】即可自动开启该策略。");
             }
 
             // 5. Windows 原生 Child Session 状态探测 (只读)
@@ -949,7 +913,6 @@ namespace MaaChildHost
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("OK (" + (isEnabled ? "已启用" : "支持但未启用") + ")");
                 Console.ResetColor();
-                passCount++;
             }
             else
             {
@@ -975,7 +938,6 @@ namespace MaaChildHost
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("OK (已配置，DPAPI 解密通过)");
                 Console.ResetColor();
-                passCount++;
             }
             else
             {
@@ -994,11 +956,6 @@ namespace MaaChildHost
                 Console.WriteLine("      请检查文件的下载标记和目录完整性标签；确认来源后，在正常本地目录中解压运行。");
                 failCount++;
             }
-            else
-            {
-                passCount++;
-            }
-
             Console.WriteLine();
             Console.WriteLine("======================================================");
             if (failCount == 0)
@@ -1030,24 +987,6 @@ namespace MaaChildHost
             {
                 RunEnvironmentDiagnostics();
                 return;
-            }
-            try
-            {
-                ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | (SecurityProtocolType)12288;
-                AppContext.SetSwitch("Switch.System.Net.DontEnableSystemDefaultTlsVersions", false);
-                AppContext.SetSwitch("Switch.System.Net.DontEnableSchUseStrongCrypto", false);
-            }
-            catch { }
-            uint backendParentPid = 0;
-            if (args.Length > 0 && (args[0].Equals("--ensure-backend", StringComparison.OrdinalIgnoreCase) || args[0].Equals("--launch-backend", StringComparison.OrdinalIgnoreCase)))
-            {
-                if (args.Length != 2 || !uint.TryParse(args[1], NumberStyles.None, CultureInfo.InvariantCulture, out backendParentPid) || backendParentPid == 0)
-                {
-                    NativeMethods.AttachConsole(NativeMethods.ATTACH_PARENT_PROCESS);
-                    Console.Error.WriteLine("Usage: ChildSessionHost.exe --ensure-backend <parentPid> (positive decimal PID only)");
-                    Environment.ExitCode = 1;
-                    return;
-                }
             }
             using (WindowsIdentity identity = WindowsIdentity.GetCurrent())
             {
@@ -1242,7 +1181,6 @@ namespace MaaChildHost
                 else if (cmd == "--logoff")
                 {
                     NativeMethods.AttachConsole(NativeMethods.ATTACH_PARENT_PROCESS);
-                    NativeMethods.WTSEnableChildSessions(true);
                     uint? activeChildId = NativeMethods.TryGetChildSessionId();
                     uint currentHostSessionId = NativeMethods.GetCurrentSessionId();
                     if (activeChildId.HasValue && activeChildId.Value != currentHostSessionId && activeChildId.Value != NativeMethods.NoChildSessionId)
@@ -1257,38 +1195,9 @@ namespace MaaChildHost
                     Environment.Exit(0);
                     return;
                 }
-                else if (cmd == "--ensure-backend" || cmd == "--launch-backend")
-                {
-                    NativeMethods.AttachConsole(NativeMethods.ATTACH_PARENT_PROCESS);
-                    bool createdBackendHost;
-                    using (Mutex backendHostMutex = new Mutex(true, "MaaEndChildSessionHost_SingleInstanceMutex", out createdBackendHost))
-                    {
-                        if (!NativeMethods.WTSEnableChildSessions(true)) throw new Win32Exception(Marshal.GetLastWin32Error());
-                        if (createdBackendHost)
-                        {
-                            Application.EnableVisualStyles();
-                            Application.SetCompatibleTextRenderingDefault(false);
-                            Application.Run(new MainForm(true, backendParentPid: backendParentPid));
-                        }
-                        else
-                        {
-                            uint? activeChildId = NativeMethods.TryGetChildSessionId();
-                            if (!activeChildId.HasValue)
-                            {
-                                Console.Error.WriteLine("[ChildSessionHost] Host is already running; child session is not ready.");
-                                Environment.ExitCode = 1;
-                                return;
-                            }
-                            ChildLauncher.LaunchBackend(backendParentPid);
-                            Console.WriteLine("[ChildSessionHost] Backend launch requested in child session " + activeChildId.Value);
-                        }
-                    }
-                    return;
-                }
                 else if (cmd == "--launch-maaend")
                 {
                     NativeMethods.AttachConsole(NativeMethods.ATTACH_PARENT_PROCESS);
-                    NativeMethods.WTSEnableChildSessions(true);
                     uint? activeChildId = NativeMethods.TryGetChildSessionId();
                     if (!activeChildId.HasValue)
                     {
@@ -1312,7 +1221,6 @@ namespace MaaChildHost
                 else if (cmd == "--launch-game")
                 {
                     NativeMethods.AttachConsole(NativeMethods.ATTACH_PARENT_PROCESS);
-                    NativeMethods.WTSEnableChildSessions(true);
                     uint? activeChildId = NativeMethods.TryGetChildSessionId();
                     if (!activeChildId.HasValue)
                     {
@@ -1362,7 +1270,6 @@ namespace MaaChildHost
             {
                 if (!createdNew)
                 {
-                    NativeMethods.WTSEnableChildSessions(true);
                     uint? activeChildId = NativeMethods.TryGetChildSessionId();
                     if (activeChildId.HasValue && autoLaunchMaaEnd)
                     {
@@ -1387,7 +1294,7 @@ namespace MaaChildHost
                 }
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
-                Application.Run(new MainForm(false, autoLaunchMaaEnd, null, customMaaEnd));
+                Application.Run(new MainForm(autoLaunchMaaEnd, customMaaEnd));
             }
         }
     }
