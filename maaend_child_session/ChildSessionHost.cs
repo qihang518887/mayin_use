@@ -48,6 +48,10 @@ namespace MaaChildHost
         [DllImport("kernel32.dll", SetLastError = true)]
         public static extern bool AllocConsole();
         public const int ATTACH_PARENT_PROCESS = -1;
+        [DllImport("kernel32.dll")]
+        public static extern IntPtr GetStdHandle(int handle);
+        [DllImport("kernel32.dll")]
+        public static extern bool SetConsoleOutputCP(uint codePage);
     }
     internal static class CredentialStore
     {
@@ -782,12 +786,11 @@ namespace MaaChildHost
 
         private static void RunEnvironmentDiagnostics()
         {
-            bool attached = NativeMethods.AttachConsole(NativeMethods.ATTACH_PARENT_PROCESS);
-            if (!attached && !Console.IsInputRedirected)
-            {
-                NativeMethods.AllocConsole();
-            }
-            try { Console.OutputEncoding = Encoding.UTF8; } catch { }
+            NativeMethods.AttachConsole(NativeMethods.ATTACH_PARENT_PROCESS);
+            IntPtr output = NativeMethods.GetStdHandle(-11);
+            bool allocated = (output == IntPtr.Zero || output == new IntPtr(-1)) && NativeMethods.AllocConsole();
+            NativeMethods.SetConsoleOutputCP(65001);
+            Console.SetOut(new StreamWriter(Console.OpenStandardOutput(), new UTF8Encoding(false)) { AutoFlush = true });
             try { Console.Title = "MaaEnd 桌面分身 - 系统环境与兼容性检测"; } catch { }
 
             Console.WriteLine();
@@ -816,7 +819,7 @@ namespace MaaChildHost
             }
             catch { }
 
-            Console.Write("[1/6] 操作系统版本: " + prodName + " (" + edition + ") ... ");
+            Console.Write("[1/7] 操作系统版本: " + prodName + " (" + edition + ") ... ");
             bool isHome = edition.IndexOf("Core", StringComparison.OrdinalIgnoreCase) >= 0 ||
                           prodName.IndexOf("Home", StringComparison.OrdinalIgnoreCase) >= 0;
             if (isHome)
@@ -843,7 +846,7 @@ namespace MaaChildHost
                 WindowsPrincipal principal = new WindowsPrincipal(identity);
                 isAdmin = principal.IsInRole(WindowsBuiltInRole.Administrator);
             }
-            Console.Write("[2/6] 管理员提权状态 ... ");
+            Console.Write("[2/7] 管理员提权状态 ... ");
             if (isAdmin)
             {
                 Console.ForegroundColor = ConsoleColor.Green;
@@ -861,7 +864,7 @@ namespace MaaChildHost
             }
 
             // 3. 远程桌面核心服务配置 (TermService)
-            Console.Write("[3/6] 远程桌面核心服务 (TermService) ... ");
+            Console.Write("[3/7] 远程桌面核心服务 (TermService) ... ");
             int serviceStart = -1;
             try
             {
@@ -898,7 +901,7 @@ namespace MaaChildHost
             }
 
             // 4. 系统远程桌面连接策略 (fDenyTSConnections)
-            Console.Write("[4/6] 本地 RDP 监听策略 (fDenyTSConnections) ... ");
+            Console.Write("[4/7] 本地 RDP 监听策略 (fDenyTSConnections) ... ");
             int denyTS = -1;
             try
             {
@@ -928,7 +931,7 @@ namespace MaaChildHost
             }
 
             // 5. Windows 原生 Child Session 状态探测 (只读)
-            Console.Write("[5/6] 原生 Child Session 状态 (WTSIsChildSessionsEnabled) ... ");
+            Console.Write("[5/7] 原生 Child Session 状态 (WTSIsChildSessionsEnabled) ... ");
             bool childApiOk = false;
             bool isEnabled = false;
             int lastErr = 0;
@@ -965,7 +968,7 @@ namespace MaaChildHost
             }
 
             // 6. 本地免密凭据检查 (session_cred.dat)
-            Console.Write("[6/6] 本地免密凭据 (session_cred.dat) ... ");
+            Console.Write("[6/7] 本地免密凭据 (session_cred.dat) ... ");
             string pwd = CredentialStore.LoadPassword();
             if (!string.IsNullOrEmpty(pwd))
             {
@@ -980,6 +983,20 @@ namespace MaaChildHost
                 Console.WriteLine("INFO (未配置)");
                 Console.ResetColor();
                 Console.WriteLine("      说明：尚未保存凭据。若当前账户有登录密码，首次建议运行【一键免密.bat】。");
+            }
+
+            Console.Write("[7/7] 程序文件信任区域 ... ");
+            System.Security.SecurityZone zone = System.Security.Policy.Zone.CreateFromUrl(Application.ExecutablePath).SecurityZone;
+            Console.WriteLine(zone);
+            if (zone == System.Security.SecurityZone.Internet || zone == System.Security.SecurityZone.Untrusted)
+            {
+                Console.WriteLine("      FAIL：程序被判为不受信任区域，可能导致发布者警告及 Child Session 连接白屏。");
+                Console.WriteLine("      请检查文件的下载标记和目录完整性标签；确认来源后，在正常本地目录中解压运行。");
+                failCount++;
+            }
+            else
+            {
+                passCount++;
             }
 
             Console.WriteLine();
@@ -1000,7 +1017,7 @@ namespace MaaChildHost
             Console.WriteLine("======================================================");
             Console.WriteLine();
 
-            if (!attached)
+            if (allocated)
             {
                 Console.WriteLine("按任意键退出...");
                 try { Console.ReadKey(); } catch { }
@@ -1009,6 +1026,11 @@ namespace MaaChildHost
         [STAThread]
         public static void Main(string[] args)
         {
+            if (args.Length > 0 && (args[0].Equals("--check", StringComparison.OrdinalIgnoreCase) || args[0].Equals("-c", StringComparison.OrdinalIgnoreCase)))
+            {
+                RunEnvironmentDiagnostics();
+                return;
+            }
             try
             {
                 ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | (SecurityProtocolType)12288;
@@ -1068,12 +1090,6 @@ namespace MaaChildHost
             if (args != null && args.Length > 0)
             {
                 string cmd = args[0].ToLowerInvariant();
-                if (cmd == "--check" || cmd == "-c")
-                {
-                    RunEnvironmentDiagnostics();
-                    Environment.Exit(0);
-                    return;
-                }
                 if (cmd == "--fix-rdp" || cmd == "-f")
                 {
                     NativeMethods.AttachConsole(NativeMethods.ATTACH_PARENT_PROCESS);
@@ -1194,7 +1210,6 @@ namespace MaaChildHost
                 else if (cmd == "--status")
                 {
                     NativeMethods.AttachConsole(NativeMethods.ATTACH_PARENT_PROCESS);
-                    NativeMethods.WTSEnableChildSessions(true);
                     uint? sid = NativeMethods.TryGetChildSessionId();
                     if (sid.HasValue)
                     {
